@@ -15,7 +15,7 @@
     "appId": "com.readingapp.timeline",
     "productName": "纪年轴",
     "directories": {
-      "output": "dist"
+      "output": "release"
     },
     "files": [
       "main.js",
@@ -25,7 +25,8 @@
     ],
     "win": {
       "target": "portable",
-      "icon": "src-tauri/icons/icon.ico"
+      "icon": "src-tauri/icons/icon.ico",
+      "artifactName": "${productName}.${ext}"
     }
   },
   "devDependencies": {
