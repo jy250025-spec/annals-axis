@@ -3,6 +3,7 @@ dist/
 dist-new/
 release/
 build-output/
+out/
 *.exe
 .DS_Store
 .claude/

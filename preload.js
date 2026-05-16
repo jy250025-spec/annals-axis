@@ -1,2 +1,6 @@
-// Preload script for security isolation
-// Currently no IPC bridges needed - all logic runs in renderer with localStorage
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('api', {
+  loadData: () => ipcRenderer.invoke('load-data'),
+  saveData: (data) => ipcRenderer.invoke('save-data', data),
+});

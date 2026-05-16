@@ -85,7 +85,7 @@
         <nav id="bookList" class="flex-1 overflow-y-auto px-4 py-4 space-y-1">
         </nav>
         <div class="p-4 text-[10px] text-slate-400 dark:text-zinc-600 border-t border-slate-100 dark:border-customDark-border uppercase tracking-wider">
-            v1.0.0
+            v1.1.0
         </div>
     </aside>
 
@@ -177,10 +177,8 @@
             darkMode: false
         };
 
-        const STORAGE_KEY = 'READING_TIMELINE_DATA';
-
-        window.onload = () => {
-            loadData();
+        window.onload = async () => {
+            await loadData();
             applyTheme();
             if (state.sidebarCollapsed) {
                 document.getElementById('sidebar').classList.add('collapsed');
@@ -189,25 +187,36 @@
             renderBookList();
             renderTimeline();
             updatePlaceholder();
-            // 打开时滚动到底部（最新的条目）
             const wrapper = document.getElementById('timelineWrapper');
             setTimeout(() => { wrapper.scrollTop = wrapper.scrollHeight; }, 200);
         };
 
-        function loadData() {
-            const saved = localStorage.getItem(STORAGE_KEY);
+        async function loadData() {
+            if (window.api) {
+                const saved = await window.api.loadData();
+                if (saved) {
+                    state = saved;
+                    return;
+                }
+            }
+            // 从 localStorage 迁移旧数据
+            const saved = localStorage.getItem('READING_TIMELINE_DATA');
             if (saved) {
                 state = JSON.parse(saved);
+                await saveData();
+                localStorage.removeItem('READING_TIMELINE_DATA');
             }
         }
 
-        function saveData() {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        async function saveData() {
+            if (window.api) {
+                await window.api.saveData(state);
+            }
         }
 
-        function toggleDarkMode() {
+        async function toggleDarkMode() {
             state.darkMode = !state.darkMode;
-            saveData();
+            await saveData();
             applyTheme();
         }
 
@@ -223,7 +232,7 @@
             lucide.createIcons();
         }
 
-        function toggleSidebar() {
+        async function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             state.sidebarCollapsed = !state.sidebarCollapsed;
             if (state.sidebarCollapsed) {
@@ -231,7 +240,7 @@
             } else {
                 sidebar.classList.remove('collapsed');
             }
-            saveData();
+            await saveData();
         }
 
         function createNewBook() {
@@ -251,7 +260,7 @@
             }, 100);
         }
 
-        function confirmCreateBook() {
+        async function confirmCreateBook() {
             const name = document.getElementById('bookNameInput').value.trim();
             if (!name) {
                 closeInputModal();
@@ -264,16 +273,16 @@
             };
             state.books.push(newBook);
             state.activeBookId = newBook.id;
-            saveData();
+            await saveData();
             renderBookList();
             renderTimeline();
             updatePlaceholder();
             closeInputModal();
         }
 
-        function switchBook(id) {
+        async function switchBook(id) {
             state.activeBookId = id;
-            saveData();
+            await saveData();
             renderBookList();
             renderTimeline();
             updatePlaceholder();
@@ -295,10 +304,10 @@
             }, 100);
         }
 
-        function confirmDeleteBook() {
+        async function confirmDeleteBook() {
             state.books = state.books.filter(b => b.id !== state.activeBookId);
             state.activeBookId = state.books.length > 0 ? state.books[0].id : null;
-            saveData();
+            await saveData();
             renderBookList();
             renderTimeline();
             updatePlaceholder();
@@ -312,7 +321,7 @@
             }
         }
 
-        function saveEntry() {
+        async function saveEntry() {
             if (!state.activeBookId) {
                 showModal("提示", "请先在左侧创建一个书卷再开始录入内容。");
                 return;
@@ -354,7 +363,7 @@
             });
 
             document.getElementById('mainInput').value = '';
-            saveData();
+            await saveData();
             renderTimeline();
 
             // 滚动到新添加的条目
@@ -509,10 +518,10 @@
             lucide.createIcons();
         }
 
-        function deleteEntry(entryId) {
+        async function deleteEntry(entryId) {
             const book = state.books.find(b => b.id === state.activeBookId);
             book.entries = book.entries.filter(e => e.id !== entryId);
-            saveData();
+            await saveData();
             renderTimeline();
         }
 

@@ -1,6 +1,6 @@
 {
   "name": "annals-axis",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "jy250025-spec",
   "description": "纪年轴 - 基于时间轴的笔记记录桌面应用",
   "main": "main.js",
@@ -15,7 +15,7 @@
     "appId": "com.readingapp.timeline",
     "productName": "纪年轴",
     "directories": {
-      "output": "release"
+      "output": "out"
     },
     "files": [
       "main.js",
