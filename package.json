@@ -1,8 +1,8 @@
 {
-  "name": "reading-app",
+  "name": "annals-axis",
   "version": "1.0.0",
-  "author": "Reading App",
-  "description": "读书助手 - 时间轴桌面应用",
+  "author": "jy250025-spec",
+  "description": "纪年轴 - 基于时间轴的笔记记录桌面应用",
   "main": "main.js",
   "scripts": {
     "build:css": "node node_modules/tailwindcss/lib/cli.js -i ./src/input.css -o ./src/style.css",
@@ -13,7 +13,7 @@
   },
   "build": {
     "appId": "com.readingapp.timeline",
-    "productName": "读书助手",
+    "productName": "纪年轴",
     "directories": {
       "output": "dist"
     },

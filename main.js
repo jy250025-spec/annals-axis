@@ -9,7 +9,7 @@ function createWindow() {
         height: 800,
         minWidth: 800,
         minHeight: 600,
-        title: '读书助手 - 时间轴',
+        title: '纪年轴 - 时间轴',
         icon: path.join(__dirname, 'src-tauri', 'icons', 'icon.ico'),
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
