@@ -1,0 +1,39 @@
+{
+  "name": "reading-app",
+  "version": "1.0.0",
+  "author": "Reading App",
+  "description": "读书助手 - 时间轴桌面应用",
+  "main": "main.js",
+  "scripts": {
+    "build:css": "node node_modules/tailwindcss/lib/cli.js -i ./src/input.css -o ./src/style.css",
+    "build:icons": "node scripts/copy-lucide.js",
+    "setup": "npm run build:css && npm run build:icons",
+    "start": "npm run setup && .\\node_modules\\electron\\dist\\electron.exe .",
+    "build": "npm run setup && node node_modules/electron-builder/cli.js"
+  },
+  "build": {
+    "appId": "com.readingapp.timeline",
+    "productName": "读书助手",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "src/**/*"
+    ],
+    "win": {
+      "target": "portable",
+      "icon": "src-tauri/icons/icon.ico"
+    }
+  },
+  "devDependencies": {
+    "electron": "29.4.6",
+    "electron-builder": "^25",
+    "tailwindcss": "^3"
+  },
+  "dependencies": {
+    "lucide": "^0"
+  }
+}

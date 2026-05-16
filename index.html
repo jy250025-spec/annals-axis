@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>读书助手 - 时间轴</title>
+    <link rel="stylesheet" href="src/style.css">
+    <style>
+
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 10px;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: #4a4a4e;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+
+        aside {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        aside.collapsed {
+            width: 0 !important;
+            opacity: 0;
+            pointer-events: none;
+            padding: 0;
+            overflow: hidden;
+            min-width: 0;
+        }
+
+        .timeline-line {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2px;
+            height: 100%;
+            background: #e5e7eb;
+            z-index: 0;
+            transition: background-color 0.3s;
+        }
+        .dark .timeline-line {
+            background: #3f3f42;
+        }
+
+        .card-enter {
+            animation: slideIn 0.3s ease-out forwards;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 768px) {
+            .timeline-line { left: 20px; }
+            .timeline-item { width: 100% !important; padding-left: 45px !important; padding-right: 15px !important; text-align: left !important; }
+            .timeline-item::after { left: 14px !important; }
+            .timeline-container { padding-left: 10px; padding-right: 10px; }
+        }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden bg-slate-50 dark:bg-customDark-bg text-slate-900 dark:text-zinc-300">
+
+    <!-- 侧边栏 -->
+    <aside id="sidebar" class="w-64 bg-slate-50 dark:bg-customDark-sidebar text-slate-600 dark:text-zinc-400 flex flex-col border-r border-slate-200 dark:border-customDark-border flex-shrink-0">
+        <div class="p-6 flex justify-between items-center border-b border-slate-100 dark:border-customDark-border">
+            <h1 class="text-slate-800 dark:text-zinc-100 font-bold text-lg">读书助手</h1>
+            <button onclick="createNewBook()" class="p-1 hover:bg-slate-200 dark:hover:bg-zinc-800 text-slate-500 dark:text-zinc-400 rounded transition" title="新建书卷">
+                <i data-lucide="plus-circle" class="w-6 h-6"></i>
+            </button>
+        </div>
+        <nav id="bookList" class="flex-1 overflow-y-auto px-4 py-4 space-y-1">
+        </nav>
+        <div class="p-4 text-[10px] text-slate-400 dark:text-zinc-600 border-t border-slate-100 dark:border-customDark-border uppercase tracking-wider">
+            LocalStorage 持久化存储
+        </div>
+    </aside>
+
+    <!-- 主内容区 -->
+    <main class="flex-1 flex flex-col relative bg-slate-50 dark:bg-customDark-bg min-w-0 transition-colors duration-300">
+        <header class="h-16 bg-white dark:bg-customDark-sidebar border-b border-slate-200 dark:border-customDark-border flex items-center justify-between px-6 z-10 shadow-sm flex-shrink-0">
+            <div class="flex items-center gap-4">
+                <button onclick="toggleSidebar()" class="p-2 hover:bg-slate-100 dark:hover:bg-zinc-900 rounded-lg text-slate-500 dark:text-zinc-400 transition" title="收起/展开侧边栏">
+                    <i data-lucide="menu" class="w-5 h-5"></i>
+                </button>
+                <h2 id="currentBookTitle" class="text-xl font-semibold text-slate-800 dark:text-zinc-100 truncate max-w-[300px]">请选择或创建书卷</h2>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="toggleDarkMode()" class="p-2 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-full text-slate-500 dark:text-zinc-400 transition" title="切换黑夜模式">
+                    <i id="themeIcon" data-lucide="sun" class="w-5 h-5"></i>
+                </button>
+                <button id="deleteBookBtn" onclick="deleteCurrentBook()" class="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded-full transition hidden" title="删除当前书卷">
+                    <i data-lucide="trash-2" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </header>
+
+        <div id="timelineWrapper" class="flex-1 overflow-y-auto relative p-8 scroll-smooth">
+            <div id="timelineContainer" class="max-w-4xl mx-auto relative min-h-full">
+                <div class="timeline-line"></div>
+                <div id="timelineContent" class="relative z-10 py-10"></div>
+            </div>
+        </div>
+
+        <div class="p-6 bg-white dark:bg-customDark-sidebar border-t border-slate-200 dark:border-customDark-border shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.05)] dark:shadow-none z-20 flex-shrink-0">
+            <div class="max-w-4xl mx-auto flex gap-4">
+                <textarea id="mainInput"
+                    placeholder="请输入内容..."
+                    class="flex-1 border border-slate-200 dark:border-customDark-border bg-white dark:bg-customDark-card text-slate-900 dark:text-zinc-100 rounded-xl p-4 focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none resize-none h-20 transition"
+                    onkeydown="handleInputKeydown(event)"></textarea>
+                <button onclick="saveEntry()" class="bg-blue-600 hover:bg-blue-700 text-white px-8 rounded-xl font-medium transition flex flex-col items-center justify-center gap-1 shadow-md">
+                    <span>保存并排序</span>
+                    <span class="text-[10px] opacity-70">Enter ↵</span>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- 弹窗部分 -->
+    <div id="modalOverlay" class="fixed inset-0 bg-black/50 hidden z-[100] flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white dark:bg-customDark-card rounded-2xl p-6 w-96 shadow-2xl scale-95 transition-transform border dark:border-customDark-border" id="modalBox">
+            <h3 id="modalTitle" class="text-lg font-bold mb-2 text-slate-800 dark:text-zinc-100">提示</h3>
+            <p id="modalMsg" class="text-slate-600 dark:text-zinc-400 mb-6"></p>
+            <div class="flex justify-end">
+                <button onclick="closeModal()" class="bg-slate-800 dark:bg-zinc-700 text-white px-6 py-2 rounded-lg hover:bg-slate-700 dark:hover:bg-zinc-600 transition">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="inputModalOverlay" class="fixed inset-0 bg-black/50 hidden z-[100] flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white dark:bg-customDark-card rounded-2xl p-6 w-96 shadow-2xl scale-95 transition-transform border dark:border-customDark-border" id="inputModalBox">
+            <h3 class="text-lg font-bold mb-4 text-slate-800 dark:text-zinc-100">新建书卷</h3>
+            <input type="text" id="bookNameInput"
+                class="w-full border dark:border-customDark-border bg-white dark:bg-customDark-bg text-slate-900 dark:text-zinc-100 rounded-xl p-3 mb-6 focus:ring-2 focus:ring-blue-500 outline-none transition"
+                placeholder="请输入书卷名称..."
+                onkeydown="if(event.key === 'Enter') confirmCreateBook()">
+            <div class="flex justify-end gap-3">
+                <button onclick="closeInputModal()" class="px-4 py-2 text-slate-500 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition">取消</button>
+                <button onclick="confirmCreateBook()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition shadow-md">创建</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="deleteModalOverlay" class="fixed inset-0 bg-black/50 hidden z-[100] flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white dark:bg-customDark-card rounded-2xl p-6 w-96 shadow-2xl scale-95 transition-transform border dark:border-customDark-border" id="deleteModalBox">
+            <div class="flex items-center gap-3 text-red-600 mb-4">
+                <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+                <h3 class="text-lg font-bold">确认删除</h3>
+            </div>
+            <p class="text-slate-600 dark:text-zinc-400 mb-6">确定要删除整本书及其所有记录吗？此操作不可撤销。</p>
+            <div class="flex justify-end gap-3">
+                <button onclick="closeDeleteModal()" class="px-4 py-2 text-slate-500 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition">取消</button>
+                <button onclick="confirmDeleteBook()" class="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition shadow-md">确认删除</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="src/lucide.js"></script>
+    <script>
+        let state = {
+            books: [],
+            activeBookId: null,
+            sidebarCollapsed: false,
+            darkMode: false
+        };
+
+        const STORAGE_KEY = 'READING_TIMELINE_DATA';
+
+        window.onload = () => {
+            loadData();
+            applyTheme();
+            if (state.sidebarCollapsed) {
+                document.getElementById('sidebar').classList.add('collapsed');
+            }
+            lucide.createIcons();
+            renderBookList();
+            renderTimeline();
+            updatePlaceholder();
+            // 打开时滚动到底部（最新的条目）
+            const wrapper = document.getElementById('timelineWrapper');
+            setTimeout(() => { wrapper.scrollTop = wrapper.scrollHeight; }, 200);
+        };
+
+        function loadData() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                state = JSON.parse(saved);
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        }
+
+        function toggleDarkMode() {
+            state.darkMode = !state.darkMode;
+            saveData();
+            applyTheme();
+        }
+
+        function applyTheme() {
+            const icon = document.getElementById('themeIcon');
+            if (state.darkMode) {
+                document.documentElement.classList.add('dark');
+                icon.setAttribute('data-lucide', 'moon');
+            } else {
+                document.documentElement.classList.remove('dark');
+                icon.setAttribute('data-lucide', 'sun');
+            }
+            lucide.createIcons();
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            state.sidebarCollapsed = !state.sidebarCollapsed;
+            if (state.sidebarCollapsed) {
+                sidebar.classList.add('collapsed');
+            } else {
+                sidebar.classList.remove('collapsed');
+            }
+            saveData();
+        }
+
+        function createNewBook() {
+            document.getElementById('bookNameInput').value = '';
+            document.getElementById('inputModalOverlay').classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById('inputModalBox').classList.remove('scale-95');
+                document.getElementById('inputModalBox').classList.add('scale-100');
+                document.getElementById('bookNameInput').focus();
+            }, 10);
+        }
+
+        function closeInputModal() {
+            document.getElementById('inputModalBox').classList.add('scale-95');
+            setTimeout(() => {
+                document.getElementById('inputModalOverlay').classList.add('hidden');
+            }, 100);
+        }
+
+        function confirmCreateBook() {
+            const name = document.getElementById('bookNameInput').value.trim();
+            if (!name) {
+                closeInputModal();
+                return;
+            }
+            const newBook = {
+                id: Date.now().toString(),
+                name: name,
+                entries: []
+            };
+            state.books.push(newBook);
+            state.activeBookId = newBook.id;
+            saveData();
+            renderBookList();
+            renderTimeline();
+            updatePlaceholder();
+            closeInputModal();
+        }
+
+        function switchBook(id) {
+            state.activeBookId = id;
+            saveData();
+            renderBookList();
+            renderTimeline();
+            updatePlaceholder();
+        }
+
+        function deleteCurrentBook() {
+            if (!state.activeBookId) return;
+            document.getElementById('deleteModalOverlay').classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById('deleteModalBox').classList.remove('scale-95');
+                document.getElementById('deleteModalBox').classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModalBox').classList.add('scale-95');
+            setTimeout(() => {
+                document.getElementById('deleteModalOverlay').classList.add('hidden');
+            }, 100);
+        }
+
+        function confirmDeleteBook() {
+            state.books = state.books.filter(b => b.id !== state.activeBookId);
+            state.activeBookId = state.books.length > 0 ? state.books[0].id : null;
+            saveData();
+            renderBookList();
+            renderTimeline();
+            updatePlaceholder();
+            closeDeleteModal();
+        }
+
+        function handleInputKeydown(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                saveEntry();
+            }
+        }
+
+        function saveEntry() {
+            if (!state.activeBookId) {
+                showModal("提示", "请先在左侧创建一个书卷再开始录入内容。");
+                return;
+            }
+
+            const input = document.getElementById('mainInput').value.trim();
+            if (!input) return;
+
+            const book = state.books.find(b => b.id === state.activeBookId);
+
+            const hasYear = /(\d{1,4})年/.test(input) || /^[一二三四五六七八九十百]+年/.test(input);
+            if (book.entries.length === 0 && !hasYear) {
+                showModal("首次输入要求", "作为本卷的第一条记录，请务必在开头输入年份（例如：1933年10月10日，长征开始了...）以建立时间基准。");
+                return;
+            }
+
+            const parsed = parseDateAndContent(input, book);
+            if (!parsed.month || !parsed.day) {
+                showModal("识别失败", "无法识别日期。请按照格式输入，如「3月18日」「3月下旬」等。");
+                return;
+            }
+
+            const newId = Date.now().toString();
+            book.entries.push({
+                id: newId,
+                year: parsed.year,
+                month: parsed.month,
+                day: parsed.day,
+                subPriority: parsed.subPriority,
+                displayTitle: parsed.displayTitle,
+                content: parsed.content
+            });
+
+            book.entries.sort((a, b) => {
+                if (a.year !== b.year) return a.year - b.year;
+                if (a.month !== b.month) return a.month - b.month;
+                if (a.day !== b.day) return a.day - b.day;
+                return (a.subPriority || 0) - (b.subPriority || 0);
+            });
+
+            document.getElementById('mainInput').value = '';
+            saveData();
+            renderTimeline();
+
+            // 滚动到新添加的条目
+            setTimeout(() => {
+                document.getElementById(`entry-${newId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 100);
+        }
+
+        function parseDateAndContent(text, book) {
+            let year = null;
+            let month = null;
+            let day = null;
+            let subPriority = 0;
+            let displayTitle = "";
+            let content = text;
+
+            const yearMatch = text.match(/^(\d{1,4})年/);
+            const cnYearMatch = text.match(/^([一二三四五六七八九十百]{1,10})年/);
+
+            if (yearMatch) {
+                year = parseInt(yearMatch[1]);
+                text = text.replace(yearMatch[0], "").trim();
+            } else if (cnYearMatch) {
+                year = chineseToNum(cnYearMatch[1]);
+                text = text.replace(cnYearMatch[0], "").trim();
+            } else if (book.entries.length > 0) {
+                year = book.entries[book.entries.length - 1].year;
+            }
+
+            // 去除年月之间的分隔符（如 "1949年，10月1日" 中的逗号）
+            text = text.replace(/^[，,、。\s：:]+/, "").trim();
+
+            const xunPattern = /^([一二三四五六七八九十]{1,3}|\d{1,2})月(上旬|中旬|下旬)/;
+            const xunMatch = text.match(xunPattern);
+
+            if (xunMatch) {
+                month = isNaN(xunMatch[1]) ? chineseToNum(xunMatch[1]) : parseInt(xunMatch[1]);
+                const type = xunMatch[2];
+                if (type === '上旬') { day = 10; }
+                else if (type === '中旬') { day = 15; }
+                else if (type === '下旬') { day = 20; }
+                subPriority = 1;
+                displayTitle = `${month}月${type}`;
+                content = text.replace(xunMatch[0], "").trim().replace(/^[，。,.\s：:]+/, "");
+                return { year, month, day, subPriority, displayTitle, content };
+            }
+
+            const datePatterns = [
+                { reg: /^(\d{1,2})[月\.\-](\d{1,2})[日号]?/, mIdx: 1, dIdx: 2 },
+                { reg: /^([一二三四五六七八九十]{1,3})月([一二三四五六七八九十]{1,3})[日号]?/, mIdx: 1, dIdx: 2 }
+            ];
+
+            for (let p of datePatterns) {
+                const m = text.match(p.reg);
+                if (m) {
+                    month = isNaN(m[p.mIdx]) ? chineseToNum(m[p.mIdx]) : parseInt(m[p.mIdx]);
+                    day = isNaN(m[p.dIdx]) ? chineseToNum(m[p.dIdx]) : parseInt(m[p.dIdx]);
+                    displayTitle = `${month}月${day}日`;
+                    subPriority = 0;
+                    content = text.replace(m[0], "").trim().replace(/^[，。,.\s：:]+/, "");
+                    break;
+                }
+            }
+
+            return { year, month, day, subPriority, displayTitle, content };
+        }
+
+        function chineseToNum(str) {
+            const map = { '零':0,'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10 };
+            if (str === '十') return 10;
+            if (str.length === 1) return map[str];
+            if (str.length === 2) {
+                if (str[0] === '十') return 10 + map[str[1]];
+                if (str[1] === '十') return map[str[0]] * 10;
+            }
+            if (str.length === 3) {
+                return map[str[0]] * 10 + map[str[2]];
+            }
+            let res = "";
+            for(let char of str) { res += map[char] !== undefined ? map[char] : ""; }
+            return parseInt(res) || 0;
+        }
+
+        function renderBookList() {
+            const list = document.getElementById('bookList');
+            list.innerHTML = '';
+            state.books.forEach(book => {
+                const isActive = book.id === state.activeBookId;
+                const btn = document.createElement('button');
+                btn.className = `w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 mb-1 ${isActive ? 'bg-blue-50 dark:bg-zinc-800 text-blue-600 dark:text-zinc-100 font-medium shadow-[0_2px_10px_-3px_rgba(37,99,235,0.2)] border border-blue-100 dark:border-zinc-700' : 'text-slate-500 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-zinc-900'}`;
+                btn.onclick = () => switchBook(book.id);
+                btn.innerHTML = `
+                    <i data-lucide="book-open" class="w-4 h-4"></i>
+                    <span class="truncate flex-1 text-left">${book.name}</span>
+                `;
+                list.appendChild(btn);
+            });
+            lucide.createIcons();
+        }
+
+        function renderTimeline() {
+            const container = document.getElementById('timelineContent');
+            const headerTitle = document.getElementById('currentBookTitle');
+            const delBtn = document.getElementById('deleteBookBtn');
+            container.innerHTML = '';
+
+            const book = state.books.find(b => b.id === state.activeBookId);
+            if (!book) {
+                headerTitle.innerText = "请选择或创建书卷";
+                delBtn.classList.add('hidden');
+                return;
+            }
+
+            headerTitle.innerText = book.name;
+            delBtn.classList.remove('hidden');
+
+            let lastYear = null;
+            book.entries.forEach((entry, index) => {
+                if (entry.year !== lastYear) {
+                    const yearDiv = document.createElement('div');
+                    yearDiv.className = "relative flex justify-center my-12";
+                    yearDiv.innerHTML = `
+                        <div class="bg-slate-800 dark:bg-zinc-100 text-white dark:text-black px-6 py-1.5 rounded-full text-sm font-bold shadow-md z-10">
+                            ${entry.year} 年
+                        </div>
+                    `;
+                    container.appendChild(yearDiv);
+                    lastYear = entry.year;
+                }
+
+                const isLeft = index % 2 === 0;
+                const item = document.createElement('div');
+                item.id = `entry-${entry.id}`;
+                item.className = `timeline-item relative mb-8 w-1/2 ${isLeft ? 'pr-12 text-right ml-0' : 'pl-12 text-left ml-auto'} card-enter`;
+
+                const dot = document.createElement('div');
+                dot.className = "absolute top-6 w-4 h-4 rounded-full bg-blue-500 border-4 border-white dark:border-customDark-bg shadow-sm z-20";
+                if (isLeft) dot.style.right = "-9px"; else dot.style.left = "-9px";
+
+                item.innerHTML = `
+                    <div class="group relative bg-white dark:bg-zinc-900 p-5 rounded-2xl shadow-sm hover:shadow-md transition border border-slate-100 dark:border-zinc-800">
+                        <div class="text-blue-600 dark:text-blue-400 font-bold text-sm mb-1">${entry.displayTitle}</div>
+                        <p class="text-slate-700 dark:text-zinc-300 leading-relaxed">${entry.content}</p>
+                        <button onclick="deleteEntry('${entry.id}')" class="absolute -top-2 -right-2 bg-white dark:bg-zinc-900 text-slate-300 hover:text-red-500 w-6 h-6 rounded-full shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                            <i data-lucide="x" class="w-3 h-3"></i>
+                        </button>
+                    </div>
+                `;
+                item.appendChild(dot);
+                container.appendChild(item);
+            });
+            lucide.createIcons();
+        }
+
+        function deleteEntry(entryId) {
+            const book = state.books.find(b => b.id === state.activeBookId);
+            book.entries = book.entries.filter(e => e.id !== entryId);
+            saveData();
+            renderTimeline();
+        }
+
+        function updatePlaceholder() {
+            const input = document.getElementById('mainInput');
+            const book = state.books.find(b => b.id === state.activeBookId);
+            if (book && book.entries.length === 0) {
+                input.placeholder = "例如：1933年10月10日，长征开始了  或  1949年，10月1日，建国";
+            } else {
+                input.placeholder = "输入日期，例如：3月1日 或 3月上旬 或 5月20日，内容...";
+            }
+        }
+
+        function showModal(title, msg) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalMsg').innerText = msg;
+            document.getElementById('modalOverlay').classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById('modalBox').classList.remove('scale-95');
+                document.getElementById('modalBox').classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeModal() {
+            document.getElementById('modalBox').classList.add('scale-95');
+            setTimeout(() => {
+                document.getElementById('modalOverlay').classList.add('hidden');
+            }, 100);
+        }
+    </script>
+</body>
+</html>
