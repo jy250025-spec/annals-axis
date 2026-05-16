@@ -5,3 +5,4 @@ release/
 build-output/
 *.exe
 .DS_Store
+.claude/
